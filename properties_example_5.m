@@ -24,7 +24,7 @@ end
 % - pier elements: PS 
 for i = 8
     element(i).m = 1*[1 0; 0 0.1];
-    element(i).k = 0*[1 -1;-1 1];
+    element(i).k = 1*[1 -1;-1 1];
     % element(i).type = 'linear';
     element(i).type = 1;
 

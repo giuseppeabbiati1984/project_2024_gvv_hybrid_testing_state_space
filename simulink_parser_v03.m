@@ -861,6 +861,8 @@ close(dictionaryObj);
 
 % Set model parameters
 set_param(gcs, 'Solver', 'ode4')
+set_param(gcs, 'SaveState', 'on')
+set_param(gcs, 'AlgebraicLoopMsg', 'none') % To neglect algebraic loop warning
 
 % Save model
 save_system(modelname);
