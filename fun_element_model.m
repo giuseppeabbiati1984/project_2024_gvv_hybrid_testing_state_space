@@ -23,7 +23,7 @@ switch id
     case 3
         type = 'mostaghel';
 end
-string = [string 'R = pierR_' type '(x, element);'];
+string = [string 'R = R_' type '(x, element);'];
 
 % % R - for linear deck element
 % if id == 1
