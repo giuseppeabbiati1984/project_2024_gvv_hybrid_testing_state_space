@@ -6,11 +6,12 @@ example = 5;
 
 % ---
 script_define_model
+element = element_processing(element);
 script_generate_collocation_matrices
 
 
 % This will be the file name
-modelname = ['Elem' num2str(numel(element)) '_D' num2str(sum([element.type]==1)) '_P' num2str(sum([element.type]==2)) '_NL' num2str(sum([element.nonlin]))];
+modelname = 'Elem9_L5_NL4';
 
 
 
@@ -109,7 +110,7 @@ for i = 1:1:numel(element)
     S = sfroot;
     B = S.find('Name', blockname, '-isa', 'Stateflow.EMChart');  % Retrieves all open models
     B = B.find('Path', [modelname '/' blockname], '-isa', 'Stateflow.EMChart');  % Selects model in development
-    B.Script = fun_element_model(element(i).type, element(i).nonlin);
+    B.Script = fun_element_model(element(i).type);
 
     % Store connections and handles
     elementBlock_conn{i} = get_param([modelname '/elem' num2str(i)], 'PortConnectivity');
@@ -233,7 +234,7 @@ for i = 1:1:numel(element)
     add_block('simulink/Continuous/Integrator', ...
         [modelname '/Integrator' num2str(i)], ...
         'Position', [x y x+dx y+dy], ...
-        'InitialCondition', ['zeros(' num2str(element(i).n) ',1)']); 
+        'InitialCondition', ['zeros(' num2str(height(element(i).M+element(i).nvars)) ',1)']); 
 
 
     % (1b) state - properties

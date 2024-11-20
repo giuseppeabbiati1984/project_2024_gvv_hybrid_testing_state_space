@@ -9,16 +9,15 @@ element = struct([]);
 for i = 1:3
     element(i).m = 1e2*eye(2);
     element(i).k = 10*[1 -1;-1 1];
+    % element(i).type = 'linear';
     element(i).type = 1;
-    element(i).type1 = 'linear';
 end
 
 % - pier elements: seismic isolators (type 3)
 for i = 4:7
     element(i).m = 1*[1 0; 0 1];
     element(i).k = 1*[1 -1;-1 1];
-    element(i).pars.d0 = 1.5e-3;
-    element(i).pars.d1 = 0.07;
+    % element(i).type = 'mostaghel';
     element(i).type = 3;
 end
 
@@ -26,9 +25,8 @@ end
 for i = 8
     element(i).m = 1*[1 0; 0 0.1];
     element(i).k = 0*[1 -1;-1 1];
-    element(i).pars.d0 = 1.5e-3;
-    element(i).pars.d1 = 0.07;
-    element(i).type = 3;
+    % element(i).type = 'linear';
+    element(i).type = 1;
 
 end
 
@@ -36,11 +34,8 @@ end
 for i = 9
     element(i).m = 1*[1 0; 0 0.1];
     element(i).k = 1*[1 -1;-1 1];
-    % element(i).pars.alpha = 1.0 ;  % linear stiffness component
-    % element(i).pars.beta = 1.0 ;  % nonlinear stiffness component
-    % element(i).pars.gamma = 1.0 ;  % nonlinear stiffness component
-    % element(i).pars.n = 2;  % exponent for the hysteresis loop
-    element(i).type = 3;
+    % element(i).type = 'linear';
+    element(i).type = 1;
 end
 
 

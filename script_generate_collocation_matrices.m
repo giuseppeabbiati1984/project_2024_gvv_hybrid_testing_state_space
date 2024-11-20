@@ -7,12 +7,7 @@
 %% B MATRICES
 % Collocation matrix B
 for i = 1:1:numel(element)
-    if element(i).nonlin
-        % element(i).B = [zeros(element(i).ndofs);eye(element(i).ndofs);zeros(element(i).ndofs)];
-        element(i).B = [zeros(element(i).ndofs);eye(element(i).ndofs);zeros(1,element(i).ndofs)];
-    else
-        element(i).B = [zeros(element(i).ndofs);eye(element(i).ndofs)];
-    end
+    element(i).B = [zeros(element(i).ndofs);eye(element(i).ndofs);zeros(element(i).nvars,element(i).ndofs)];
 end
 
 
@@ -49,12 +44,8 @@ end
 % Collocation matrix G - displacement controlled
 for i = 1:1:numel(element)
     idx = find(ismember(element(i).dofs, model.dofs_d, "rows"));
-    if element(i).nonlin
-        % element(i).G_d = zeros(max(height(idx), 1), 3*element(i).ndofs);
-        element(i).G_d = zeros(max(height(idx), 1), 2*element(i).ndofs+1);
-    else
-        element(i).G_d = zeros(max(height(idx), 1), 2*element(i).ndofs);
-    end
+    element(i).G_d = zeros(max(height(idx), 1), 2*element(i).ndofs+element(i).nvars);
+
     for j = 1:1:numel(idx)
         element(i).G_d(j, idx(j)) = 1;
     end
@@ -64,14 +55,8 @@ end
 % Collocation matrix G - force controlled
 for i = 1:1:numel(element)
     idx = find(ismember(element(i).dofs, model.dofs_f, "rows"));
-    if element(i).nonlin
-        % element(i).G_f = zeros(height(idx), 3*element(i).ndofs);
-        % element(i).G_f = zeros(max(height(idx), 1), 3*element(i).ndofs);
-        element(i).G_f = zeros(max(height(idx), 1), 2*element(i).ndofs+1);
-    else
-        % element(i).G_f = zeros(height(idx), 2*element(i).ndofs);
-        element(i).G_f = zeros(max(height(idx), 1), 2*element(i).ndofs);
-    end
+    element(i).G_f = zeros(max(height(idx), 1), 2*element(i).ndofs+element(i).nvars);
+
     for j = 1:1:numel(idx)
         element(i).G_f(j, idx(j)) = 1;
     end

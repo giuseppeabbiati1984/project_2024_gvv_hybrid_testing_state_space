@@ -1,15 +1,15 @@
 function R = pierR_mostaghel(x,element)
 
 % Allocate
-R = zeros(element.n, 1);
+R = zeros(height(element.M), 1);
 
 % Retrieve
 d = x(1:2);
 v = x(3:4);
 r = x(5);
 
-d0 = element.pars.d0;
-d1 = element.pars.d1;
+d0 = element.d0;
+d1 = element.d1;
 
 % Generalized restoring force
 % - state space trick
@@ -25,7 +25,7 @@ R(5) = (nbw((v(1)-v(2))) * mbw(r-(d0-d1)) + mw((v(1)-v(2))) * nw(r+(d0-d1))) * (
 
 
 % - evolutionary equation of the dissipated energy
-R(6) = -r * (v(1)-v(2));
+% R(6) = -r * (v(1)-v(2));
 
 end
 

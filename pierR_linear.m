@@ -1,7 +1,7 @@
 function R = pierR_linear(x,element)
 
 % Allocate
-R = zeros(element.n, 1);
+R = zeros(height(element.M), 1);
 
 % Retrieve
 d = x(1:2);

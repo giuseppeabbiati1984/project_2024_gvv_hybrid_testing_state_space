@@ -1,17 +1,17 @@
 function R = pierR_boucwen(x,element)
 
 % Allocate
-R = zeros(element.n, 1);
+R = zeros(height(element.M), 1);
 
 % Retrieve
 d = x(1:2);
 v = x(3:4);
 r = x(5);
 
-alpha = element.pars.alpha;
-beta = element.pars.beta;
-gamma = element.pars.gamma;
-n = element.pars.n;
+alpha = element.alpha;
+beta = element.beta;
+gamma = element.gamma;
+n = element.n;
 
 % Generalized restoring force
 % - state space trick
