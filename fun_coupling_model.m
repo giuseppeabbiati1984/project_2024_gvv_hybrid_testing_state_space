@@ -37,15 +37,15 @@ string = [string 'epsilon_G = [' newline];
 % end
 
 for i = 1:1:n
-    if nnz(element(i).G_f) > 0 && nnz(element(i).G_d) > 0
+    if nnz(element{i}.G_f) > 0 && nnz(element{i}.G_d) > 0
         string = [string '[element' num2str(i) '.G_f; element' num2str(i) '.G_d] * x' num2str(i) 'd'];
         string = [string ' + blkdiag(element' num2str(i) '.Gbar_f, element' num2str(i) '.Gbar_d) * [xfd; xdd] ;' newline];
 
-    elseif nnz(element(i).G_f) > 0 && nnz(element(i).G_d) == 0
+    elseif nnz(element{i}.G_f) > 0 && nnz(element{i}.G_d) == 0
         string = [string 'element' num2str(i) '.G_f * x' num2str(i) 'd'];
         string = [string ' + element' num2str(i) '.Gbar_f * xfd ;' newline];
 
-    elseif nnz(element(i).G_f) == 0 && nnz(element(i).G_d) > 0
+    elseif nnz(element{i}.G_f) == 0 && nnz(element{i}.G_d) > 0
         string = [string 'element' num2str(i) '.G_d * x' num2str(i) 'd'];
         string = [string ' + element' num2str(i) '.Gbar_d * xdd ;' newline];
     end

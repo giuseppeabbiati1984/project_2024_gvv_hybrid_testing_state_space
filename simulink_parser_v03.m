@@ -1,17 +1,10 @@
 %% INPUT ------------------------------------------------------------------
 close all; clear; clc;
 
-% ---
-example = 5;
 
-% ---
-script_define_model
+script_input
 element = element_processing(element);
-script_generate_collocation_matrices
-
-
-% This will be the file name
-modelname = 'Elem9_L5_NL4';
+[element, model] = create_model(element, model);
 
 
 
@@ -38,7 +31,7 @@ new_system(modelname);
 % Generating bus'
 for i = 1:1:numel(element)
     % Element parameter bus
-    ePar_bus = Simulink.Bus.createObject(element(i)) ;
+    ePar_bus = Simulink.Bus.createObject(rmfield(element{i},'type')) ;
     eval(['ePar' num2str(i) ' = evalin("base", ePar_bus.busName);']) 
 end
 
@@ -48,8 +41,8 @@ mPar_bus = Simulink.Bus.createObject(model);
 mPar = evalin("base", mPar_bus.busName);
 
 % Bus for element structure
-ePar_bus = Simulink.Bus.createObject(element);
-ePar = evalin("base", ePar_bus.busName);
+% ePar_bus = Simulink.Bus.createObject(element);
+% ePar = evalin("base", ePar_bus.busName);
 
 
 %% ALLOCATION -------------------------------------------------------------
@@ -110,7 +103,8 @@ for i = 1:1:numel(element)
     S = sfroot;
     B = S.find('Name', blockname, '-isa', 'Stateflow.EMChart');  % Retrieves all open models
     B = B.find('Path', [modelname '/' blockname], '-isa', 'Stateflow.EMChart');  % Selects model in development
-    B.Script = fun_element_model(element(i).type);
+    B.Script = import_element(element{i}.type);
+    element{i} = rmfield(element{i}, 'type');
 
     % Store connections and handles
     elementBlock_conn{i} = get_param([modelname '/elem' num2str(i)], 'PortConnectivity');
@@ -120,11 +114,12 @@ end
 
 
 
+
 %% BUILD INPUTS FOR ELEMENT BLOCKS ----------------------------------------
 % ....
-number_of_lagrange_multipliers = height(sortrows(vertcat(element.dofs)));
-number_of_unknowns = height(model.dofs);
-size_of_z = number_of_lagrange_multipliers + number_of_unknowns;
+% number_of_lagrange_multipliers = height(sortrows(vertcat(element.dofs)));
+% number_of_unknowns = height(model.dofs);
+size_of_z = model.ndofs_ext + model.ndofs;
 
 % For every element ...
 for i = 1:1:numel(element)
@@ -149,10 +144,10 @@ for i = 1:1:numel(element)
     idx_start = 1;
     if i > 1
         for j = 1:i-1
-            idx_start = idx_start + height(element(j).dofs);
+            idx_start = idx_start + height(element{j}.dofs);
         end
     end
-    idx_end = idx_start + height(element(i).dofs) - 1;
+    idx_end = idx_start + height(element{i}.dofs) - 1;
     indices = idx_start:1:idx_end;
 
     % (2a) lagrange selector
@@ -197,7 +192,7 @@ for i = 1:1:numel(element)
         [modelname '/Elem_par' num2str(i)],...
             'Position', [x y x+dx y+dy]) ;
     set_param([modelname '/Elem_par' num2str(i)],...
-        'Value', strcat('element(',num2str(i),')'), ...
+        'Value', strcat('element{',num2str(i),'}'), ...
         'OutDataTypeStr',['Bus: ePar' num2str(i)]) ;
 
 
@@ -234,7 +229,7 @@ for i = 1:1:numel(element)
     add_block('simulink/Continuous/Integrator', ...
         [modelname '/Integrator' num2str(i)], ...
         'Position', [x y x+dx y+dy], ...
-        'InitialCondition', ['zeros(' num2str(height(element(i).M+element(i).nvars)) ',1)']); 
+        'InitialCondition', ['zeros(' num2str(height(element{i}.M+element{i}.nvars)) ',1)']); 
 
 
     % (1b) state - properties
@@ -333,7 +328,7 @@ for i = 1:1:numel(element)
         [modelname '/coupling elem' num2str(i)],...
             'Position', [x y x+dx y+dy]) ;
     set_param([modelname '/coupling elem' num2str(i)],...
-        'Value', strcat('element(',num2str(i),')'), ...
+        'Value', strcat('element{',num2str(i),'}'), ...
         'OutDataTypeStr',['Bus: ePar' num2str(i)]) ;
 
 
@@ -481,7 +476,7 @@ xy = get_param([modelname '/selector' num2str(numel(element))], 'Position');
 dx = 40; dy = 10*size_of_z;
 x = xy(1); y = xy(2) + 250;
 
-idx_start = number_of_lagrange_multipliers + 1;
+idx_start = model.ndofs_ext + 1;
 idx_end = idx_start + height(model.dofs_d) - 1;
 indices = idx_start:1:idx_end;
 
@@ -527,7 +522,7 @@ xy = get_param([modelname '/selector_fd'], 'Position');
 dx = 40; dy = 10*size_of_z;
 x = xy(1); y = xy(2) + dy + 25;
 
-idx_start = number_of_lagrange_multipliers + height(model.dofs_d) + 1;
+idx_start = model.ndofs_ext + height(model.dofs_d) + 1;
 idx_end = idx_start + height(model.dofs_f) - 1;
 indices = idx_start:1:idx_end;
 
@@ -748,7 +743,7 @@ z_constraint_handles = get_param([modelname '/z_constraint'], 'PortHandles');
 % for i = 1:1:numel(element)
 %     % Selector - properties
 %     xy = mux_conn(i).Position;
-%     dx = 40; dy = 10*element(i).ndofs*2;
+%     dx = 40; dy = 10*element{i}.ndofs*2;
 %     x = xy(1) - 100; y = xy(2) - 0.5*dy;    
 % 
 %     % Selector
