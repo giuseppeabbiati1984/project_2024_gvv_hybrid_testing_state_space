@@ -2,7 +2,7 @@
 close all; clear; clc;
 
 
-script_input
+script_input_2springs
 element = element_processing(element);
 [element, model] = create_model(element, model);
 
@@ -644,20 +644,24 @@ xd_conn = get_param([modelname '/xd'], 'PortConnectivity');
 xd_handles = get_param([modelname '/xd'], 'PortHandles');
 
 
-% integrator - properties
+% % integrator - properties
+% derivative - properties
 xy = input_xd_conn(1).Position;
 dx = 35; dy = 35;
 x = xy(1) + 50; y = xy(2) - 0.5*dy;
-
-% integrator
-add_block('simulink/Continuous/Integrator', ...
-    [modelname '/integrator_xd'], ...
-    'Position', [x y x+dx y+dy], ...
-    'InitialCondition', ['zeros(' num2str(height(model.dofs_d)) ',1)']); 
+% 
+% % integrator
+% add_block('simulink/Continuous/Integrator', ...
+%     [modelname '/integrator_xd'], ...
+%     'Position', [x y x+dx y+dy], ...
+%     'InitialCondition', ['zeros(' num2str(height(model.dofs_d)) ',1)']); 
+add_block('simulink/Continuous/Derivative', ...
+    [modelname '/derivative_xd'], ...
+    'Position', [x y x+dx y+dy])
 
 % Store connections and handles
-integrator_xd_conn = get_param([modelname '/integrator_xd'], 'PortConnectivity');
-integrator_xd_handles = get_param([modelname '/integrator_xd'], 'PortHandles');
+integrator_xd_conn = get_param([modelname '/derivative_xd'], 'PortConnectivity');
+integrator_xd_handles = get_param([modelname '/derivative_xd'], 'PortHandles');
 
 
 % xdd - properties

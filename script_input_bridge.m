@@ -53,6 +53,22 @@ element{8}.dofs = [6,1; 9,1];
 element{9}.dofs = [7,1; 10,1];
 
 
+
 % Model
 model.dofs_f = [1,1; 2,1; 3,1; 4,1; 6,1; 7,1];
 model.dofs_d = [5,1; 8,1; 9,1; 10,1];
+
+
+% %% VERIFICATION
+% m = zeros(10,10);
+% for i = 1:numel(element)
+%     m(element{i}.dofs(:,1),element{i}.dofs(:,1)) = m(element{i}.dofs(:,1),element{i}.dofs(:,1)) + element{i}.m;
+% end
+% 
+% 
+% r = zeros(10,1);
+% x = zeros(10,1);
+% 
+% for i = 1:numel(element)
+%     r(element{i}.dofs(:,1),1) = feval(['R_' element{i}.type],...,element{i}) 
+% end

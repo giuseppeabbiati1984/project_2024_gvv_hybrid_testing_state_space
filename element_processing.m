@@ -20,11 +20,9 @@ for i = 1:1:numel(element)
     %       (3) mostaghel
     switch element{i}.type
         case 'linear'
-        % case 1
             element{i}.nvars = 0;
 
         case 'boucwen'
-        % case 2
             element{i}.nvars = 1;
 
             if ~isfield(element{i}, 'alpha') 
@@ -45,7 +43,6 @@ for i = 1:1:numel(element)
             element{i}.d1 = 0;
 
         case 'mostaghel'
-        % case 3
             element{i}.nvars = 1;
             if ~isfield(element{i}, 'd0')
                 element{i}.d0 = 1.5e-3;
