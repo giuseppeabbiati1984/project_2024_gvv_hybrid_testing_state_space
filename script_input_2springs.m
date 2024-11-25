@@ -28,6 +28,22 @@ element = element_processing(element) ;
 model.dofs_f = [2,1;3,1];
 model.dofs_d = [1,1];
 
+model.loads_f{1}.type = 'Constant';
+model.loads_f{1}.Value = 0;
+
+model.loads_f{2}.type = 'Sine Wave';
+model.loads_f{2}.Amplitude = 5e2;
+model.loads_f{2}.Bias = 0;
+model.loads_f{2}.Frequency = 2*pi;
+model.loads_f{2}.Phase = 0;
+
+model.loads_d{1}.type = 'Constant';
+model.loads_d{1}.Value = 0;
+
+[element, model] = create_model(element, model);
+
+return
+
 %% Assemble global mass, stiffness, and damping matrices
 ndofs = 3; % Total degrees of freedom in the system
 
@@ -182,7 +198,7 @@ function yd = EOM(t, y, Mr, Cr, Kr, Ku, alpha, beta, gamma, n, gu, gf)
 
     % Extract variables
     u = y(1:2); % displacements
-    v = y(3:4); % celocities
+    v = y(3:4); % velocities
     r = y(5); % Bouc-Wen restoring force
 
     % Bouc-Wen force

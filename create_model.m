@@ -17,6 +17,14 @@ end
 model.dofs = sortrows(unique(model.dofs, "rows"));
 model.ndofs = height(model.dofs);
 
+% Verify if provided loading corresponds to defined dofs with loading
+if numel(model.loads_f) ~= height(model.dofs_f)
+    error('The number of load trajectories are not equal to the number of selected dofs with applied loading.')
+end
+if numel(model.loads_d) ~= height(model.dofs_d)
+    error('The number of displacement trajectories are not equal to the number of selected dofs with applied displacement.')
+end
+
 
 %% B MATRICES
 % Collocation matrix B
@@ -52,16 +60,13 @@ end
 
 
 %% G MATRICES
-% Certainly to be discussed!
-% ...
-
 % Collocation matrix G - displacement controlled
 for i = 1:1:numel(element)
     idx = find_dofs(element{i}.dofs, model.dofs_d);
     element{i}.G_d = zeros(max(height(idx), 1), 2*element{i}.ndofs+element{i}.nvars);
 
     for j = 1:1:numel(idx)
-        element{i}.G_d(j, idx(j)) = 1;
+        element{i}.G_d(j, element{i}.ndofs+idx(j)) = 1;
     end
 end
 
@@ -71,7 +76,7 @@ for i = 1:1:numel(element)
     idx = find_dofs(element{i}.dofs, model.dofs_f);
     element{i}.G_f = zeros(max(height(idx), 1), 2*element{i}.ndofs+element{i}.nvars);
     for j = 1:1:numel(idx)
-        element{i}.G_f(j, idx(j)) = 1;
+        element{i}.G_f(j, element{i}.ndofs+idx(j)) = 1;
     end
 end
 

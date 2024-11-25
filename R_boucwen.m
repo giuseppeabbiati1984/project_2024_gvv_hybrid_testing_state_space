@@ -21,7 +21,9 @@ R(1:2) = -v;
 R(3:4) = element.k * d + element.c * v + [r; -r];
 
 % - evolutionary equation restoring force
-R(5) = - (alpha - (beta * sign(r*(v(1)-v(2))) + gamma) * abs(r^n) * (v(1)-v(2)));
+dv = v(1) - v(2); 
+R(5) = - (alpha - (beta * sign(r*dv) + gamma) * abs(r)^n) * dv;
+% R(5) = (alpha - (beta * sign(r*dv) + gamma) * abs(r)^n) * dv;
 
 % - evolutionary equation of the dissipated energy
 % R(6) = -r * (v(1)-v(2));

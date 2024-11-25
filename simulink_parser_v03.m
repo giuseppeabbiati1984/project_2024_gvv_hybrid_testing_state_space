@@ -1,11 +1,10 @@
-%% INPUT ------------------------------------------------------------------
+%% INPUT ---------------------------------------------------n---------------
 close all; clear; clc;
 
 
 script_input_2springs
 element = element_processing(element);
 [element, model] = create_model(element, model);
-
 
 
 %% INITIALIZATION ---------------------------------------------------------
@@ -37,16 +36,21 @@ end
 
 
 % Bus for model structure
-mPar_bus = Simulink.Bus.createObject(model);
+mPar_bus = Simulink.Bus.createObject(rmfield(model,{'loads_f', 'loads_d'}));
 mPar = evalin("base", mPar_bus.busName);
-
-% Bus for element structure
-% ePar_bus = Simulink.Bus.createObject(element);
-% ePar = evalin("base", ePar_bus.busName);
 
 
 %% ALLOCATION -------------------------------------------------------------
+% Determine size of state vector
+size_of_z = model.ndofs_ext + model.ndofs;
+
 % Allocate 
+ff_input_conn = cell(numel(model.loads_f),1);
+ff_input_handles = cell(numel(model.loads_f),1);
+
+xd_input_conn = cell(numel(model.loads_d),1);
+xd_input_handles = cell(numel(model.loads_d),1);
+
 state_conn = cell(numel(element),1);
 state_handles = cell(numel(element),1);
 
@@ -84,14 +88,242 @@ coupling_f_conn = cell(numel(element),1);
 coupling_f_handles = cell(numel(element),1);
 
 
+%% BUILD LOADING 
+% Part for ff (applied forces): ff
+xy = [250, 100]; % Reference coordinates
+dx = 40; dy = 30; % Size of block
+x = xy(1); y = xy(2) - 0.5*dy; % Base coordinate for block
+
+add_block('simulink/Signal Routing/Goto', ...
+    [modelname '/ff'],...
+        'Position', [x y x+dx y+dy], ...
+        'GotoTag', 'ff');  
+ff_conn = get_param([modelname '/ff'], 'PortConnectivity');
+ff_handles = get_param([modelname '/ff'], 'PortHandles');
+
+
+% Part for ff (applied forces): mux
+xy = ff_conn(1).Position; % Reference coordinates
+dx = 5; dy = 20+50*numel(model.loads_f);
+x = xy(1) - 25; y = xy(2) - 0.5*dy;
+
+add_block('simulink/Signal Routing/Mux', ...
+    [modelname '/ff_mux'], ...
+    'Inputs', num2str(numel(model.loads_f)), ...
+    'Position', [x y x+dx y+dy]);
+ff_mux_conn = get_param([modelname '/ff_mux'], 'PortConnectivity');
+ff_mux_handles = get_param([modelname '/ff_mux'], 'PortHandles');
+
+
+% Part for ff (applied forces): ff_input_i
+for i = 1:numel(model.loads_f)
+    xy = ff_mux_conn(i).Position;
+    dx = 40; dy = 40;
+    x = xy(1) - 50 - 0.5*dx; y = xy(2) - 0.5*dy;
+
+    if model.loads_f{i}.type == "Sine Wave"
+        add_block('simulink/Sources/Sine Wave', ...
+            [modelname '/ff_input_' num2str(i)], ...
+            'Position', [x y x+dx y+dy], ...
+            'Amplitude', num2str(model.loads_f{i}.Amplitude), ...
+            'Bias', num2str(model.loads_f{i}.Bias), ...
+            'Frequency', num2str(model.loads_f{i}.Frequency), ...
+            'Phase', num2str(model.loads_f{i}.Phase));
+
+    elseif model.loads_f{i}.type == "Constant"
+        add_block('simulink/Sources/Constant', ...
+            [modelname '/ff_input_' num2str(i)], ...
+            'Position', [x y x+dx y+dy], ...
+            'Value', num2str(model.loads_f{i}.Value));
+    end
+
+    ff_input_conn{i} = get_param([modelname '/ff_input_' num2str(i)], 'PortConnectivity');
+    ff_input_handles{i} = get_param([modelname '/ff_input_' num2str(i)], 'PortHandles');
+end
+
+% -------------------------------------------------------------------------
+% Part for xd: xd_input_i
+for i = 1:numel(model.loads_d)
+    xy = ff_input_conn{end}(1).Position;
+    dx = 40; dy = 40;
+    y = xy(2) - 0.5*dy + 100;
+
+    if model.loads_d{i}.type == "Sine Wave"
+        add_block('simulink/Sources/Sine Wave', ...
+            [modelname '/xd_input_' num2str(i)], ...
+            'Position', [x y x+dx y+dy], ...
+            'Amplitude', num2str(model.loads_f{i}.Amplitude), ...
+            'Bias', num2str(model.loads_f{i}.Bias), ...
+            'Frequency', num2str(model.loads_f{i}.Frequency), ...
+            'Phase', num2str(model.loads_f{i}.Phase));
+
+    elseif model.loads_d{i}.type == "Constant"
+        add_block('simulink/Sources/Constant', ...
+            [modelname '/xd_input_' num2str(i)], ...
+            'Position', [x y x+dx y+dy], ...
+            'Value', num2str(model.loads_f{i}.Value));
+    end
+
+    xd_input_conn{i} = get_param([modelname '/xd_input_' num2str(i)], 'PortConnectivity');
+    xd_input_handles{i} = get_param([modelname '/xd_input_' num2str(i)], 'PortHandles');    
+end
+
+
+% Part for xd (applied displacements): mux
+x = ff_mux_conn(1).Position; % Reference coordinates
+y1 = xd_input_conn{1}(1).Position; % Reference coordinates
+y2 = xd_input_conn{end}(1).Position; % Reference coordinates
+dx = 5; dy = 20+50*numel(model.loads_d);
+x = x(1)+dx; y = 0.5*(y1(2)+y2(2))-0.5*dy;
+
+add_block('simulink/Signal Routing/Mux', ...
+    [modelname '/xd_mux'], ...
+    'Inputs', num2str(numel(model.loads_d)), ...
+    'Position', [x y x+dx y+dy]);
+xd_mux_conn = get_param([modelname '/xd_mux'], 'PortConnectivity');
+xd_mux_handles = get_param([modelname '/xd_mux'], 'PortHandles');
+
+
+% Part for xd (applied displacements): derivative
+xy = xd_mux_conn(1).Position;
+dx = 40; dy = 40;
+x = x(1)+100; y = xy(2)-0.5*dy;
+add_block('simulink/Continuous/Derivative', ...
+    [modelname '/xd_derivative'], ...
+    'Position', [x y x+dx y+dy])
+xd_derivative_conn = get_param([modelname '/xd_derivative'], 'PortConnectivity');
+xd_derivative_handles = get_param([modelname '/xd_derivative'], 'PortHandles');
+
+
+% Part for xd (applied displacements): xd
+xy = xd_mux_conn(1).Position;
+dx = 40; dy = 30; % Size of block
+x = xy(1)+50; y = xy(2) - 0.5*dy + 50; % Base coordinate for block
+
+add_block('simulink/Signal Routing/Goto', ...
+    [modelname '/xd'],...
+        'Position', [x y x+dx y+dy], ...
+        'GotoTag', 'xd');  
+xd_conn = get_param([modelname '/xd'], 'PortConnectivity');
+xd_handles = get_param([modelname '/xd'], 'PortHandles');
+
+
+% Part for xd (applied displacements): xdd
+xy = xd_derivative_conn(1).Position;
+dx = 40; dy = 30; % Size of block
+x = xy(1)+dx+50; y = xy(2) - 0.5*dy; % Base coordinate for block
+
+add_block('simulink/Signal Routing/Goto', ...
+    [modelname '/xdd'],...
+        'Position', [x y x+dx y+dy], ...
+        'GotoTag', 'xdd');  
+xdd_conn = get_param([modelname '/xdd'], 'PortConnectivity');
+xdd_handles = get_param([modelname '/xdd'], 'PortHandles');
+
+
+%% STATE VECTOR SELECTIONS
+
+% Part for fd: Selector
+xy = xd_input_conn{end}(1).Position; % Reference coordinates
+dx = 40; dy = 10*size_of_z; % Size of block
+x = xy(1); y = xy(2)+250; % Base coordinates for block
+
+idx_start = model.ndofs_ext + 1; % First index to select in state vector
+idx_end = idx_start + height(model.dofs_d) - 1; % Final index to select in state vector
+indices = idx_start:1:idx_end; % All indices to select in state vector
+
+add_block('simulink/Signal Routing/Selector', ...
+    [modelname '/selector_fd'], ...
+    'Position', [x y x+dx y+dy], ...
+    'InputPortWidth', num2str(size_of_z), ... 
+    'Indices', ['[' num2str(reshape(indices', 1, [])) ']']);
+fd_selector_conn = get_param([modelname '/selector_fd'], 'PortConnectivity');
+fd_selector_handles = get_param([modelname '/selector_fd'], 'PortHandles');
+
+
+% Part for fd: state vector z
+xy = fd_selector_conn(1).Position; % Reference coordinates
+dx = 40; dy = 30; % Size of block
+x = xy(1) - 100; y = xy(2) - 0.5*dy; % Base coordinate for block
+
+add_block('simulink/Signal Routing/From', ...
+    [modelname '/z_fd' ], ...
+    'Position', [x y x+dx y+dy], ...
+    'GotoTag', 'z');  
+fd_z_conn = get_param([modelname '/z_fd'], 'PortConnectivity');
+fd_z_handles = get_param([modelname '/z_fd'], 'PortHandles');
+
+
+% Part for fd: fd
+xy = fd_selector_conn(2).Position; % Reference coordinates
+dx = 40; dy = 30; % Size of block
+x = xy(1) + 50; y = xy(2) - 0.5*dy; % Base coordinates
+
+add_block('simulink/Signal Routing/Goto', ...
+    [modelname '/fd'],...
+        'Position', [x y x+dx y+dy], ...
+        'GotoTag', 'fd');  
+fd_conn = get_param([modelname '/fd'], 'PortConnectivity');
+fd_handles = get_param([modelname '/fd'], 'PortHandles');
+
+
+% Part for xfd: Selector
+xy = fd_selector_conn(1).Position;
+dx = 40; dy = 10*size_of_z;
+x = xy(1); y = xy(2) + dy + 25;
+
+idx_start = model.ndofs_ext + height(model.dofs_d) + 1;
+idx_end = idx_start + height(model.dofs_f) - 1;
+indices = idx_start:1:idx_end;
+
+add_block('simulink/Signal Routing/Selector', ...
+    [modelname '/selector_xfd'], ...
+    'Position', [x y x+dx y+dy], ...
+    'InputPortWidth', num2str(size_of_z), ... 
+    'Indices', ['[' num2str(reshape(indices', 1, [])) ']']);
+xfd_selector_conn = get_param([modelname '/selector_xfd'], 'PortConnectivity');
+xfd_selector_handles = get_param([modelname '/selector_xfd'], 'PortHandles');
+
+
+% Part for xfd: State vector z
+xy = xfd_selector_conn(1).Position;
+dx = 40; dy = 30;
+x = xy(1) - 100; y = xy(2) - 0.5*dy;
+
+add_block('simulink/Signal Routing/From', ...
+    [modelname '/xfd_z' ], ...
+    'Position', [x y x+dx y+dy], ...
+    'GotoTag', 'z');  
+xfd_z_conn = get_param([modelname '/xfd_z'], 'PortConnectivity');
+xfd_z_handles = get_param([modelname '/xfd_z'], 'PortHandles');
+
+
+% Part for xfd: xfd
+xy = xfd_selector_conn(2).Position;
+dx = 40; dy = 30;
+x = xy(1) + 50; y = xy(2) - 0.5*dy;
+
+add_block('simulink/Signal Routing/Goto', ...
+    [modelname '/xfd'],...
+        'Position', [x y x+dx y+dy], ...
+        'GotoTag', 'xfd');  
+xfd_conn = get_param([modelname '/xfd'], 'PortConnectivity');
+xfd_handles = get_param([modelname '/xfd'], 'PortHandles');
+
+
+% Update model structure to delete strings
+model = rmfield(model,{'loads_f', 'loads_d'});
+
+
 %% BUILDING ELEMENT BLOCKS ------------------------------------------------
 
 % For every element ...
 for i = 1:1:numel(element)
 
     % Element block - properties
+    xy = xdd_conn(1).Position;
     dx = 100; dy = 250;
-    x = 0; y = (i-1)*(dy+100);
+    x = xy(1)+500; y = (i-1)*(dy+100);
 
     % Element block
     blockname = ['elem', num2str(i)];
@@ -113,13 +345,8 @@ for i = 1:1:numel(element)
 end
 
 
-
-
 %% BUILD INPUTS FOR ELEMENT BLOCKS ----------------------------------------
 % ....
-% number_of_lagrange_multipliers = height(sortrows(vertcat(element.dofs)));
-% number_of_unknowns = height(model.dofs);
-size_of_z = model.ndofs_ext + model.ndofs;
 
 % For every element ...
 for i = 1:1:numel(element)
@@ -199,7 +426,7 @@ for i = 1:1:numel(element)
     % Store connections and handles
     state_conn{i} = get_param([modelname '/x' num2str(i)], 'PortConnectivity');
     state_handles{i} = get_param([modelname '/x' num2str(i)], 'PortHandles');
-  
+
     selector_conn{i} = get_param([modelname '/selector' num2str(i)], 'PortConnectivity');
     selector_handles{i} = get_param([modelname '/selector' num2str(i)], 'PortHandles');
 
@@ -266,36 +493,12 @@ for i = 1:1:numel(element)
     state_d_out_conn{i} = get_param([modelname '/x' num2str(i) 'd_out'], 'PortConnectivity');
     state_d_out_handles{i} = get_param([modelname '/x' num2str(i) 'd_out'], 'PortHandles');
 end
-% 
-% 
-% %% SCOPES
-% for i = 1:1:numel(element)
-% 
-%     % Scope - properties
-%     xy = integrator_conn{i}(2).Position;
-%     dx = 35; dy = 50;
-%     x = xy(1) + 50; y = xy(2) - 0.5*dy;
-% 
-%     % Scope for x after integrator
-%     add_block('simulink/Commonly Used Blocks/Scope', ...
-%         [modelname '/Scope' num2str(i)], ...
-%         'MakeNameUnique', 'on', ...
-%         'Position', [x y x+dx y+dy])
-% 
-%     % Store connections and handles
-%     scope_conn{i} = get_param([modelname '/Scope' num2str(i)], 'PortConnectivity');
-%     scope_handles{i} = get_param([modelname '/Scope' num2str(i)], 'PortHandles');
-% 
-% end
-% 
-% 
-
 
 
 %% BUILD COUPLING BLOCK ---------------------------------------------------
 % Coupling block - properties
 dx = 400; dy = (4+numel(element))*110;
-x = 750; y = 0;
+x = 1500; y = 0;
 
 % Coupling block
 blockname = 'coupling';
@@ -312,7 +515,7 @@ B.Script = fun_coupling_model(element);
 % Store connections and handles
 couplingBlock_conn = get_param([modelname '/coupling'], 'PortConnectivity');
 couplingBlock_handles = get_param([modelname '/coupling'], 'PortHandles');
- 
+
 
 %% BUILD INPUTS FOR COUPLING BLOCK ----------------------------------------
 
@@ -322,7 +525,7 @@ for i = 1:1:numel(element)
     xy = couplingBlock_conn(3*(i-1)+1).Position;
     dx = 80; dy = 30;
     x = xy(1) - 100; y = xy(2) - 0.5*dy;
-    
+
     % (1) Element structure
     add_block('simulink/Sources/Constant', ...
         [modelname '/coupling elem' num2str(i)],...
@@ -367,7 +570,7 @@ for i = 1:1:numel(element)
     coupling_f_handles{i} = get_param([modelname '/coupling f' num2str(i)], 'PortHandles');
 
 end
- 
+
 
 % (4) model structure - properties
 xy = couplingBlock_conn(3*numel(element)+1).Position;
@@ -381,7 +584,6 @@ add_block('simulink/Sources/Constant', ...
 set_param([modelname '/coupling model'],...
     'Value', 'model', ...
     'OutDataTypeStr','Bus: mPar') ;
-
 
 % (5) xdd - properties
 xy = couplingBlock_conn(3*numel(element)+2).Position;
@@ -468,219 +670,6 @@ coupling_res_handles = get_param([modelname '/coupling_res'], 'PortHandles');
 
 
 
-%% BUILD LOADING 
-% fd 
-% -----
-% selector - properties
-xy = get_param([modelname '/selector' num2str(numel(element))], 'Position');
-dx = 40; dy = 10*size_of_z;
-x = xy(1); y = xy(2) + 250;
-
-idx_start = model.ndofs_ext + 1;
-idx_end = idx_start + height(model.dofs_d) - 1;
-indices = idx_start:1:idx_end;
-
-% selector
-add_block('simulink/Signal Routing/Selector', ...
-    [modelname '/selector_fd'], ...
-    'Position', [x y x+dx y+dy], ...
-    'InputPortWidth', num2str(size_of_z), ... 
-    'Indices', ['[' num2str(reshape(indices', 1, [])) ']']);
-
-% Store connections and handles
-selector_fd_conn = get_param([modelname '/selector_fd'], 'PortConnectivity');
-selector_fd_handles = get_param([modelname '/selector_fd'], 'PortHandles');
-
-
-% vector z - properties
-xy = selector_fd_conn(1).Position;
-dx = 40; dy = 30;
-x = xy(1) - 100; y = xy(2) - 0.5*dy;
-
-% vector z
-add_block('simulink/Signal Routing/From', ...
-    [modelname '/z_fd' ], ...
-    'Position', [x y x+dx y+dy], ...
-    'GotoTag', 'z');  
-
-% fd - properties
-xy = selector_fd_conn(2).Position;
-dx = 40; dy = 30;
-x = xy(1) + 50; y = xy(2) - 0.5*dy;
-
-% fd
-add_block('simulink/Signal Routing/Goto', ...
-    [modelname '/fd'],...
-        'Position', [x y x+dx y+dy], ...
-        'GotoTag', 'fd');  
-
-
-% xfd 
-% -----
-% selector - properties
-xy = get_param([modelname '/selector_fd'], 'Position');
-dx = 40; dy = 10*size_of_z;
-x = xy(1); y = xy(2) + dy + 25;
-
-idx_start = model.ndofs_ext + height(model.dofs_d) + 1;
-idx_end = idx_start + height(model.dofs_f) - 1;
-indices = idx_start:1:idx_end;
-
-% selector
-add_block('simulink/Signal Routing/Selector', ...
-    [modelname '/selector_xfd'], ...
-    'Position', [x y x+dx y+dy], ...
-    'InputPortWidth', num2str(size_of_z), ... 
-    'Indices', ['[' num2str(reshape(indices', 1, [])) ']']);
-
-% Store connections and handles
-selector_xfd_conn = get_param([modelname '/selector_xfd'], 'PortConnectivity');
-selector_xfd_handles = get_param([modelname '/selector_xfd'], 'PortHandles');
-
-
-% vector z - properties
-xy = selector_xfd_conn(1).Position;
-dx = 40; dy = 30;
-x = xy(1) - 100; y = xy(2) - 0.5*dy;
-
-% vector z
-add_block('simulink/Signal Routing/From', ...
-    [modelname '/z_xfd' ], ...
-    'Position', [x y x+dx y+dy], ...
-    'GotoTag', 'z');  
-
-% xfd - properties
-xy = selector_xfd_conn(2).Position;
-dx = 40; dy = 30;
-x = xy(1) + 50; y = xy(2) - 0.5*dy;
-
-% fd
-add_block('simulink/Signal Routing/Goto', ...
-    [modelname '/xfd'],...
-        'Position', [x y x+dx y+dy], ...
-        'GotoTag', 'xfd');  
-
-% Store connections and handles
-z_fd_conn = get_param([modelname '/z_fd'], 'PortConnectivity');
-z_fd_handles = get_param([modelname '/z_fd'], 'PortHandles');
-
-z_xfd_conn = get_param([modelname '/z_xfd'], 'PortConnectivity');
-z_xfd_handles = get_param([modelname '/z_xfd'], 'PortHandles');
-
-fd_conn = get_param([modelname '/fd'], 'PortConnectivity');
-fd_handles = get_param([modelname '/fd'], 'PortHandles');
-
-xfd_conn = get_param([modelname '/xfd'], 'PortConnectivity');
-xfd_handles = get_param([modelname '/xfd'], 'PortHandles');
-
-
-% ff
-% ------
-% Input - properties
-xy1 = elementBlock_conn{end}(1).Position;
-xy2 = selector_fd_conn(2).Position;
-dx = 40; dy = 30;
-x = xy1(1); y = xy2(2) - 0.5*dy;
-
-% Input
-add_block('simulink/Sources/Constant', ...
-    [modelname '/ff_input'], ...
-    'Position', [x y x+dx y+dy], ...
-    'Value', ['zeros(' num2str(height(model.dofs_f)) ',1)']);
-
-% Store connections and handles
-input_ff_conn = get_param([modelname '/ff_input'], 'PortConnectivity');
-input_ff_handles = get_param([modelname '/ff_input'], 'PortHandles');
-
-
-% ff - properties
-xy = input_ff_conn(1).Position;
-dx = 40; dy = 30;
-x = xy(1) + 50; y = xy(2) - 0.5*dy;
-
-% ff
-add_block('simulink/Signal Routing/Goto', ...
-    [modelname '/ff'],...
-        'Position', [x y x+dx y+dy], ...
-        'GotoTag', 'ff');  
-
-% Store connections and handles
-ff_conn = get_param([modelname '/ff'], 'PortConnectivity');
-ff_handles = get_param([modelname '/ff'], 'PortHandles');
-
-
-% xd
-% ------
-% Input - properties
-xy1 = elementBlock_conn{end}(1).Position;
-xy2 = selector_xfd_conn(2).Position;
-dx = 40; dy = 30;
-x = xy1(1); y = xy2(2) - 0.5*dy;
-
-% Input
-add_block('simulink/Sources/Constant', ...
-    [modelname '/xd_input'], ...
-    'Position', [x y x+dx y+dy], ...
-    'Value', ['zeros(' num2str(height(model.dofs_d)) ',1)']);
-
-% Store connections and handles
-input_xd_conn = get_param([modelname '/xd_input'], 'PortConnectivity');
-input_xd_handles = get_param([modelname '/xd_input'], 'PortHandles');
-
-
-% xd - properties
-xy = input_xd_conn(1).Position;
-dx = 40; dy = 30;
-x = xy(1) + 50; y = xy(2) - 0.5*dy + 75;
-
-% xd
-add_block('simulink/Signal Routing/Goto', ...
-    [modelname '/xd'],...
-        'Position', [x y x+dx y+dy], ...
-        'GotoTag', 'xd');  
-
-% Store connections and handles
-xd_conn = get_param([modelname '/xd'], 'PortConnectivity');
-xd_handles = get_param([modelname '/xd'], 'PortHandles');
-
-
-% % integrator - properties
-% derivative - properties
-xy = input_xd_conn(1).Position;
-dx = 35; dy = 35;
-x = xy(1) + 50; y = xy(2) - 0.5*dy;
-% 
-% % integrator
-% add_block('simulink/Continuous/Integrator', ...
-%     [modelname '/integrator_xd'], ...
-%     'Position', [x y x+dx y+dy], ...
-%     'InitialCondition', ['zeros(' num2str(height(model.dofs_d)) ',1)']); 
-add_block('simulink/Continuous/Derivative', ...
-    [modelname '/derivative_xd'], ...
-    'Position', [x y x+dx y+dy])
-
-% Store connections and handles
-integrator_xd_conn = get_param([modelname '/derivative_xd'], 'PortConnectivity');
-integrator_xd_handles = get_param([modelname '/derivative_xd'], 'PortHandles');
-
-
-% xdd - properties
-xy = integrator_xd_conn(2).Position;
-dx = 40; dy = 30;
-x = xy(1) + 50; y = xy(2) - 0.5*dy;
-
-% xdd
-add_block('simulink/Signal Routing/Goto', ...
-    [modelname '/xdd'],...
-        'Position', [x y x+dx y+dy], ...
-        'GotoTag', 'xdd');  
-
-% Store connections and handles
-xdd_conn = get_param([modelname '/xdd'], 'PortConnectivity');
-xdd_handles = get_param([modelname '/xdd'], 'PortHandles');
-
-
-
 %% IMPOSE THE CONSTRAINT
 % Constraint - properties
 xy = get_param([modelname '/coupling'], 'Position');
@@ -728,39 +717,69 @@ z_constraint_handles = get_param([modelname '/z_constraint'], 'PortHandles');
 
 
 %% PLOT SECTION
-% % Mux - properties
-% dx = 5; dy = numel(element)*100;
-% x = 1750; y = 0;
-% 
-% % Mux
-% add_block('simulink/Signal Routing/Mux', ...
-%     [modelname '/mux'], ...
-%     'Inputs', num2str(numel(element)), ...
-%     'Position', [x y x+dx y+dy]);
-% 
-% % Store connections and handles
-% mux_conn = get_param([modelname '/mux'], 'PortConnectivity');
-% mux_handles = get_param([modelname '/mux'], 'PortHandles');
-% 
-% 
+% % % Mux - properties
+% % dx = 5; dy = numel(element)*100;
+% % x = 1750; y = 0;
 % % 
-% for i = 1:1:numel(element)
-%     % Selector - properties
-%     xy = mux_conn(i).Position;
-%     dx = 40; dy = 10*element{i}.ndofs*2;
-%     x = xy(1) - 100; y = xy(2) - 0.5*dy;    
+% % % Mux
+% % add_block('simulink/Signal Routing/Mux', ...
+% %     [modelname '/mux'], ...
+% %     'Inputs', num2str(numel(element)), ...
+% %     'Position', [x y x+dx y+dy]);
+% % 
+% % % Store connections and handles
+% % mux_conn = get_param([modelname '/mux'], 'PortConnectivity');
+% % mux_handles = get_param([modelname '/mux'], 'PortHandles');
+% % 
+% % 
+% % % 
+% % for i = 1:1:numel(element)
+% %     % Selector - properties
+% %     xy = mux_conn(i).Position;
+% %     dx = 40; dy = 10*element{i}.ndofs*2;
+% %     x = xy(1) - 100; y = xy(2) - 0.5*dy;    
+% % 
+% %     % Selector
+% %     add_block('simulink/Signal Routing/Selector', ...
+% %         [modelname '/selector mux' num2str(i)], ...
+% %         'Position', [x y x+dx y+dy], ...
+% %         'InputPortWidth', num2str(4), ... 
+% %         'Indices', ['[' num2str(1) ']']);
+% % end
 % 
-%     % Selector
-%     add_block('simulink/Signal Routing/Selector', ...
-%         [modelname '/selector mux' num2str(i)], ...
-%         'Position', [x y x+dx y+dy], ...
-%         'InputPortWidth', num2str(4), ... 
-%         'Indices', ['[' num2str(1) ']']);
-% end
-
-
-
+% 
+% 
 %% BLOCK CONNECTIVITY -----------------------------------------------------
+% Applied loading - forces
+for i = 1:numel(ff_input_handles)
+    add_line(modelname, ff_input_handles{i}.Outport(1), ff_mux_handles.Inport(i));
+end
+add_line(modelname, ff_mux_handles.Outport(1), ff_handles.Inport(1));
+
+% Applied loading - displacements
+for i = 1:numel(xd_input_handles)
+    add_line(modelname, xd_input_handles{i}.Outport(1), xd_mux_handles.Inport(i));
+end
+add_line(modelname, xd_mux_handles.Outport(1), xd_derivative_handles.Inport(1));
+add_line(modelname, xd_mux_handles.Outport(1), xd_handles.Inport(1), 'autorouting', 'on');
+add_line(modelname, xd_derivative_handles.Outport(1), xdd_handles.Inport(1));
+
+
+
+% State vector selections
+add_line(modelname, fd_z_handles.Outport(1), fd_selector_handles.Inport(1));
+add_line(modelname, fd_selector_handles.Outport(1), fd_handles.Inport(1));
+
+add_line(modelname, xfd_z_handles.Outport(1), xfd_selector_handles.Inport(1));
+add_line(modelname, xfd_selector_handles.Outport(1), xfd_handles.Inport(1));
+
+% Constraint
+add_line(modelname, res_constraint_handles.Outport(1), constraint_handles.Inport(1));
+add_line(modelname, constraint_handles.Outport(1), z_constraint_handles.Inport(1));
+
+
+
+
 for i = 1:1:numel(element)
     % Element blocks
     % -----
@@ -822,21 +841,6 @@ add_line(modelname, couplingBlock_handles.Outport(1), coupling_res_handles.Inpor
 
 
 
-% Loading
-% ------
-add_line(modelname, z_fd_handles.Outport(1), selector_fd_handles.Inport(1));
-add_line(modelname, z_xfd_handles.Outport(1), selector_xfd_handles.Inport(1));
-
-add_line(modelname, selector_fd_handles.Outport(1), fd_handles.Inport(1));
-add_line(modelname, selector_xfd_handles.Outport(1), xfd_handles.Inport(1));
-
-add_line(modelname, input_ff_handles.Outport(1), ff_handles.Inport(1));
-add_line(modelname, input_xd_handles.Outport(1), xd_handles.Inport(1), 'autorouting', 'on');
-add_line(modelname, input_xd_handles.Outport(1), integrator_xd_handles.Inport(1));
-add_line(modelname, integrator_xd_handles.Outport(1), xdd_handles.Inport(1));
-
-add_line(modelname, res_constraint_handles.Outport(1), constraint_handles.Inport(1));
-add_line(modelname, constraint_handles.Outport(1), z_constraint_handles.Inport(1));
 
 
 %% FINALIZE ---------------------------------------------------------------
