@@ -25,6 +25,66 @@ if numel(model.loads_d) ~= height(model.dofs_d)
     error('The number of displacement trajectories are not equal to the number of selected dofs with applied displacement.')
 end
 
+% Default settings for applied forces
+for i = 1:numel(model.loads_f)
+    % Check for required parameters
+    if ~isfield(model.loads_f{i}, 'Type')
+        error('Loading type has to be defined for each applied force.')
+    end
+
+    % Check for parameters
+    switch model.loads_f{i}.Type
+        case 'Constant'
+            if ~isfield(model.loads_f{i}, 'Value')
+                model.loads_f{i}.Value = 0;
+            end
+
+        case 'Sine Wave'
+            if ~isfield(model.loads_f{i}, 'Amplitude')
+                model.loads_f{i}.Amplitude = 0;
+            end
+            if ~isfield(model.loads_f{i}, 'Bias')
+                model.loads_f{i}.Bias = 0;
+            end
+            if ~isfield(model.loads_f{i}, 'Frequency')
+                model.loads_f{i}.Frequency = 0;
+            end
+            if ~isfield(model.loads_f{i}, 'Phase')
+                model.loads_f{i}.Phase = 0;
+            end
+    end
+end
+
+% Default settings for applied displacements
+for i = 1:numel(model.loads_d)
+    % Check for required parameters
+    if ~isfield(model.loads_d{i}, 'Type')
+        error('Loading type has to be defined for each applied displacement.')
+    end
+
+    % Check for parameters
+    switch model.loads_d{i}.Type
+        case 'Constant'
+            if ~isfield(model.loads_d{i}, 'Value')
+                model.loads_d{i}.Value = 0;
+            end
+
+        case 'Sine Wave'
+            if ~isfield(model.loads_d{i}, 'Amplitude')
+                model.loads_d{i}.Amplitude = 0;
+            end
+            if ~isfield(model.loads_d{i}, 'Bias')
+                model.loads_d{i}.Bias = 0;
+            end
+            if ~isfield(model.loads_d{i}, 'Frequency')
+                model.loads_d{i}.Frequency = 0;
+            end
+            if ~isfield(model.loads_d{i}, 'Phase')
+                model.loads_d{i}.Phase = 0;
+            end
+    end
+end
+
 
 %% B MATRICES
 % Collocation matrix B

@@ -28,21 +28,23 @@ element = element_processing(element) ;
 model.dofs_f = [2,1;3,1];
 model.dofs_d = [1,1];
 
-model.loads_f{1}.type = 'Constant';
+model.loads_f{1}.Type = 'Constant';
 model.loads_f{1}.Value = 0;
 
-model.loads_f{2}.type = 'Sine Wave';
+model.loads_f{2}.Type = 'Sine Wave';
 model.loads_f{2}.Amplitude = 5e2;
 model.loads_f{2}.Bias = 0;
 model.loads_f{2}.Frequency = 2*pi;
 model.loads_f{2}.Phase = 0;
 
-model.loads_d{1}.type = 'Constant';
+model.loads_d{1}.Type = 'Constant';
 model.loads_d{1}.Value = 0;
+
+model.tmax = 20;
+model.dt = 0.02;
 
 [element, model] = create_model(element, model);
 
-return
 
 %% Assemble global mass, stiffness, and damping matrices
 ndofs = 3; % Total degrees of freedom in the system
@@ -76,7 +78,8 @@ Kr = K(2:end, 2:end);
 Ku = K(2:3,1) ;
 
 %% Initial conditions and time span
-tspan = [0 20]; % Time span
+% tspan = [0 model.tmax]; % Time span
+tspan = 0:model.dt:model.tmax; % Time span
 u0 = [0; 0]; % Initial displacement (Node 2, Node 3)
 v0 = [0; 0]; % Initial velocity (Node 2, Node 3)
 r0 = 0; % Initial Bouc-Wen force variable
@@ -94,59 +97,6 @@ r = y(:,5);
 % Include Node 1 displacement
 displacement = [gu(t), u];
 
-%% Create GIF for displacement over time
-% filename = 'displacement_animation.gif';
-% 
-% % Create the figure for plotting displacement
-% figure;
-% 
-% % Initial node positions (x, y)
-% node_positions = [0, 0; 2, 0; 4, 0];  % Node 1 [0,0], Node 2 [1,0], Node 3 [2,0]
-% x_positions = node_positions(:, 1); % Initial x-positions
-% 
-% for i = 1:length(t)
-%     % Update the x-positions with the displacement at each time step
-%     current_x_positions = x_positions + displacement(i, :)'; % Add displacement to the x-coordinate
-% 
-%     % Plot the updated node positions
-%     plot(current_x_positions, node_positions(:, 2), 'ko', 'MarkerFaceColor', 'k'); % Node 1 in black
-%     hold on;
-%     plot(current_x_positions(2), node_positions(2, 2), 'ro', 'MarkerFaceColor', 'r'); % Node 2 in red
-%     plot(current_x_positions(3), node_positions(3, 2), 'bo', 'MarkerFaceColor', 'b'); % Node 3 in blue
-% 
-%     % Labels and title
-%     title('Displacement of Nodes Over Time');
-%     xlabel('X-Position (m)');
-%     ylabel('Y-Position (m)');
-% 
-%     % Check and adjust axis limits
-%     x_min = min(current_x_positions) - 0.5;
-%     x_max = max(current_x_positions) + 0.5;
-% 
-%     % Ensure x_min is less than x_max
-%     if x_min >= x_max
-%         x_min = x_max - 1; % Adjust if necessary
-%     end
-% 
-%     axis([-5, 10, -1, 1]); % Adjust axis limits for better view
-%     legend('Node 1', 'Node 2', 'Node 3', 'Location', 'Best');
-% 
-%     % Capture the plot as an image for the GIF
-%     drawnow;
-%     frame = getframe(gcf);
-%     im = frame2im(frame);
-%     [imind, cm] = rgb2ind(im, 256);
-% 
-%     % Write to GIF
-%     if i == 1
-%         imwrite(imind, cm, filename, 'gif', 'LoopCount', inf, 'DelayTime', 0.1);
-%     else
-%         imwrite(imind, cm, filename, 'gif', 'WriteMode', 'append', 'DelayTime', 0.1);
-%     end
-% 
-%     % Clear the plot for the next frame
-%     clf;
-% end
 
 %% Create Plots for Displacement, Velocity, and Restoring Force
 % Plot displacement vs time for Node 2 and Node 3
