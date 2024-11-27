@@ -21,8 +21,6 @@ element{2}.gamma = 0.0;
 element{2}.n = 1;
 element{2}.dofs = [2,1;3,1]; % Degrees of freedom mapping
 
-% setting default values
-element = element_processing(element) ;
 
 % Model parameters
 model.dofs_f = [2,1;3,1];
@@ -43,9 +41,17 @@ model.loads_d{1}.Value = 0;
 model.tmax = 20;
 model.dt = 0.02;
 
+% Elements that are represented by a PS
+% Column 1: element number
+% Column 2: local node number with reference node 1
+% Column 3: local node number with reference node 2
+model.PS = [2,1,2];
+
+% setting default values
+element = element_processing(element) ;
 [element, model] = create_model(element, model);
 
-
+return
 %% Assemble global mass, stiffness, and damping matrices
 ndofs = 3; % Total degrees of freedom in the system
 

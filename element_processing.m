@@ -13,11 +13,12 @@ for i = 1:1:numel(element)
         element{i}.k = zeros(size(element{i}.m));
     end
 
+    % Check for type definition
+    if ~isfield(element{i}, 'type')
+        element{i}.type = 'linear';
+    end
+
     % Check for type parameters
-    %    possible types: 
-    %       (1) linear 
-    %       (2) boucwen 
-    %       (3) mostaghel
     switch element{i}.type
         case 'linear'
             element{i}.nvars = 0;

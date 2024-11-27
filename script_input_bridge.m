@@ -15,7 +15,7 @@ end
 % - pier elements: seismic isolators (type 3)
 for i = 4:7
     element{i}.m = 1*[1 0; 0 1];
-    element{i}.k = 1*[1 -1;-1 1];
+    element{i}.k = 0*[1 -1;-1 1];
     element{i}.type = 'mostaghel';
 end
 
@@ -65,3 +65,13 @@ end
 
 model.tmax = 20;
 model.dt = 0.02;
+
+% Elements that are represented by a PS
+% Column 1: element number
+% Column 2: local node number with reference node 1
+% Column 3: local node number with reference node 2
+model.PS = [8,1,2];
+
+% setting default values
+element = element_processing(element) ;
+[element, model] = create_model(element, model);

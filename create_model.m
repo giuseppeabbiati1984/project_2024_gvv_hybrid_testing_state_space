@@ -3,6 +3,9 @@
 % ---------------------------------------
 % close all; clc; clear;
 
+% stiffness cantilever 7.2 kN/m
+% stroke cantilever up to +- 20mm
+
 function [element, model] = create_model(element, model)
 
 %% Model
@@ -23,6 +26,11 @@ if numel(model.loads_f) ~= height(model.dofs_f)
 end
 if numel(model.loads_d) ~= height(model.dofs_d)
     error('The number of displacement trajectories are not equal to the number of selected dofs with applied displacement.')
+end
+
+% Verify if PS vector is present
+if ~isfield(model, 'PS') || isempty(model.PS)
+    model.PS = [0, 1, 2];
 end
 
 % Default settings for applied forces
